@@ -1,0 +1,235 @@
+---
+title: "Time Series Forecasting: Turkey Energy Consumption"
+author: "Sakar"
+date: "2023-05-03"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+STEP-1 : Importing the necessary libraries 
+First import all the libraries required for the study
+I will mainly be using the forecast and the tseries library, here are small descriptions of the given libraries used for this project:
+
+Forecast :- 
+the R package forecast provides methods and tools for displaying and analysing univariate time series forecasts 
+including exponential smoothing via state space models and automatic ARIMA modelling.
+tseries :- 
+The ts() function will convert a numeric vector into an R time series object. The format is ts(vector, start=, end=, frequency=) 
+where start and end are the times of the first and last observation and frequency is the number of observations per unit time
+
+
+```{r}
+#install.packages("tinytex")
+library(forecast)
+library(tseries)
+library(dplyr)
+library(readr)
+```
+
+STEP-2 : Importing the dataset, for the dataset I have pre-cleaned the data using excel
+
+Dataset Description: I have taken the energy consumption dataset of turkey dated from 1st January 2019 to 31st December 2019, I have grouped the Hourly consumption of energy by days and converted the power consumption scale from Megawatts to Gigawatts
+
+I have two columns : date and energy consumption in Gigawatts 
+
+Now,let's import the dataset 
+```{r}
+Turkey_energy <- read_csv("turkey_energy_day.csv")
+```
+STEP: DATA PRE-PROCESSING 
+```{r}
+# Convert the "days" column from character string to date format
+Turkey_energy$days <- as.Date(Turkey_energy$days, format = "%d.%m.%Y")
+
+energy_ts <- ts(Turkey_energy$`energy in GW`, start = c(2019, 1), frequency = 365)
+```
+
+STEP : MODEL CREATION 
+
+ETS MODEL:
+ETS (Error, Trend, Seasonality) is a statistical model used for time series forecasting. It decomposes a time series into three components: error, trend, and seasonality, and different combinations of these components result in different ETS model forms. ETS models are estimated using maximum likelihood estimation and can be implemented using software packages such as R's forecast package
+```{r}
+ets_model <- ets(energy_ts)
+summary(ets_model)
+```
+ETS MODEL FORECAST
+I have taken N as 30 for our model so we will be forecasting the energy consumption in GW for the next 30 days 
+```{r}
+n <- 30 # Number of days to forecast we are trying to forecast the value of energy consumption for the next 30 days 
+ets_forecast <- forecast(ets_model, h = n)
+mean_forecasted= mean(ets_forecast$mean)
+mean_forecasted 
+plot(ets_forecast, main = "ETS Forecast", xlab = "Days", ylab = "Energy Consumption (GW)")
+```
+
+
+```{r}
+# ETS Model: Fitted values
+plot(ets_model$fitted, main = "ETS Fitted Values", xlab = "Time", ylab = "Energy Consumption (GW)")
+```
+Residual plot and ACF plot 
+
+A residual plot shows the difference between observed and predicted values of a dependent variable, 
+while an ACF plot shows the autocorrelation coefficients of a time series. Both plots are used in statistical analysis
+to identify problems with models and data, and to select appropriate model specifications and parameter values. 
+A good residual plot shows no obvious patterns or trends, while a good ACF plot shows that the autocorrelation 
+coefficients quickly decrease to zero as the time lag increases.
+```{r}
+par(mfrow = c(2, 1))
+# ETS Model: Residuals
+plot(ets_model$residuals, main = "ETS Residuals", xlab = "Time", ylab = "Residuals")
+# ETS Model: ACF of residuals
+acf(ets_model$residuals, main = "ETS ACF of Residuals")
+```
+The ETS model was built to forecast energy consumption, measured in gigawatts (GW). 
+The summary statistics provide an overview of the model's performance on the training set. Here is a brief interpretation of the summary:
+
+ME (Mean Error) = 0.09618917: On average, the model's forecasts are slightly higher 
+than the actual values, with a mean error of 0.096 GW.
+RMSE (Root Mean Square Error) = 74.46787: The RMSE measures the average magnitude of the model's errors. An RMSE of 74.46787 GW indicates that the model's forecast errors are quite substantial in terms of energy consumption.
+MAE (Mean Absolute Error) = 57.99575: The MAE measures the average absolute error of the model's forecasts. On average, the model's forecasts are off by 57.99575 GW, which is a significant error in terms of energy consumption.
+MPE (Mean Percentage Error) = -0.9204521: The MPE measures the average percentage difference between the forecasted and actual values. A negative MPE of -0.9204521% indicates that the model tends to slightly underestimate the energy consumption.
+MAPE (Mean Absolute Percentage Error) = 7.505931: The MAPE measures the average absolute percentage error of the model's forecasts. A MAPE of 7.505931% implies that the model's forecasts are, on average, about 7.5% off from the actual values.
+
+In summary, the ETS model built to forecast energy consumption has a relatively high error rate, with the average forecast being about 7.5% off from the actual values. The model tends to slightly underestimate energy consumption, and its errors do not show strong dependence on each other.
+
+MODEL-2
+
+ARIMA MODEL 
+
+ARIMA (Autoregressive Integrated Moving Average) is a statistical model used for time series forecasting. It captures linear dependencies and patterns in a time series by incorporating information from previous time steps through autoregression, integration, and moving average components. ARIMA models can capture trends, seasonality, and random fluctuations in a time series and are widely used in various fields, including finance, economics, and engineering.
+
+```{r}
+arima_model <- auto.arima(energy_ts)
+summary(arima_model)
+```
+
+```{r}
+n <- 30 # Number of days to forecast
+arima_forecast <- forecast(arima_model, h = n)
+a= mean(arima_forecast$mean)
+a
+plot(arima_forecast, main = "ARIMA Forecast", xlab = "Days", ylab = "Energy Consumption (GW)")
+```
+
+ARIMA MODEL VISUALIZATION 
+
+```{r}
+# ARIMA Model: Fitted values
+plot(fitted(arima_model), main = "ARIMA Fitted Values", xlab = "Time", ylab = "Energy Consumption (GW)")
+
+# ARIMA Model: Residuals
+residuals_arima <- residuals(arima_model)
+plot(residuals_arima, main = "ARIMA Residuals", xlab = "Time", ylab = "Residuals")
+```
+ACF and PACF plot for ARIMA MODEL 
+
+ACF and PACF plots are used to identify the presence of autocorrelation in time series data and to determine the appropriate order of AR and MA terms for a given model. A significant autocorrelation suggests the need for an MA term, while a significant partial autocorrelation suggests the need for an AR term.
+```{r}
+par(mfrow = c(2, 1))
+# ARIMA Model: ACF of residuals
+acf(residuals_arima, main = "ARIMA ACF of Residuals")
+
+# ARIMA Model: PACF of residuals
+pacf(residuals_arima, main = "ARIMA PACF of Residuals")
+```
+
+```{r}
+# ARIMA Model: Residual histogram
+hist(residuals_arima, main = "ARIMA Residual Histogram", xlab = "Residuals", ylab = "Frequency")
+```
+
+The ARIMA model was built to forecast energy consumption, measured in gigawatts (GW). The summary statistics provide an overview of the model's performance on the training set.
+
+ME (Mean Error) = 1.871383: On average, the model's forecasts are slightly higher than the actual values, with a mean error of 1.871 GW.
+RMSE (Root Mean Square Error) = 62.6832: The RMSE measures the average magnitude of the model's errors. An RMSE of 62.6832 GW indicates that the model's forecast errors are substantial in terms of energy consumption but lower than those of the ETS model.
+MAE (Mean Absolute Error) = 49.0363: The MAE measures the average absolute error of the model's forecasts. On average, the model's forecasts are off by 49.0363 GW, which is a significant error in terms of energy consumption but smaller than the ETS model's MAE.
+MPE (Mean Percentage Error) = -0.4316515: The MPE measures the average percentage difference between the forecasted and actual values. A negative MPE of -0.4316515% indicates that the model tends to slightly underestimate the energy consumption, similar to the ETS model.
+MAPE (Mean Absolute Percentage Error) = 6.35569: The MAPE measures the average absolute percentage error of the model's forecasts. A MAPE of 6.35569% implies that the model's forecasts are, on average, about 6.36% off from the actual values, which is an improvement compared to the ETS model.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+MODEL -3 SEASONAL ARIMA 
+
+A seasonal ARIMA (SARIMA) model is an extension of the ARIMA model used to capture seasonal patterns in a time series. SARIMA models have additional parameters to account for seasonal differences and dependencies, and incorporate both non-seasonal and seasonal AR, I, and MA components. SARIMA models are denoted by SARIMA(p,d,q)(P,D,Q)s, where p, d, and q represent non-seasonal components, P, D, and Q represent seasonal components, and s represents the frequency of the seasonality.
+
+```{r}
+#DATA PRE-PROCESSING FOR FITTING THE SEASONALITY OF S-ARIMA MODEL 
+energy_ts_1 <- ts(Turkey_energy$`energy in GW`, start = c(2019, 1), frequency = 30)
+```
+
+Fitting the S-ARIMA MODEL with seasonality 
+```{r}
+seasonal_arima_model <- auto.arima(energy_ts_1, seasonal = TRUE)
+summary(seasonal_arima_model)
+```
+Forecasting and computing the mean of forecasts
+```{r}
+n <- 30 # Number of days to forecast
+seasonal_arima_forecast <- forecast(seasonal_arima_model, h = n)
+month_forecast_mean= mean(seasonal_arima_forecast$mean)
+month_forecast_mean=
+plot(seasonal_arima_forecast, main = "Seasonal ARIMA Forecast", xlab = "Days", ylab = "Energy Consumption (GW)")
+```
+
+```{r}
+# ARIMA Model: Fitted values
+plot(fitted(seasonal_arima_model), main = "Seasonal ARIMA Forecast", xlab = "Time", ylab = "Energy Consumption (GW)")
+
+# ARIMA Model: Residuals
+residuals_sarima <- residuals(seasonal_arima_model)
+plot(residuals_arima, main = "Seasonal ARIMA Forecast",xlab = "Time", ylab = "Residuals")
+
+
+```
+
+```{r}
+par(mfrow = c(2, 1))
+
+acf(residuals(seasonal_arima_model), main = "ACF of Residuals")
+pacf(residuals(seasonal_arima_model), main = "PACF of Residuals")
+
+```
+
+```{r}
+hist(residuals(seasonal_arima_model), main = "Histogram of Residuals", xlab = "Residuals", col = "lightblue", border = "black")
+
+```
+Statistical summary for the seasonal ARIMA model built to forecast energy consumption:
+
+ME (Mean Error) = 1.488978: The model's forecasts are on average slightly higher than the actual values, with a mean error of 1.489 GW.
+RMSE (Root Mean Square Error) = 65.06954: The RMSE indicates that the model's forecast errors are substantial in terms of energy consumption, with an average magnitude of 65.06954 GW.
+MAE (Mean Absolute Error) = 51.12753: The MAE shows that the model's forecasts are off by an average of 51.12753 GW, which is a significant error in terms of energy consumption.
+MPE (Mean Percentage Error) = -0.5484075: The MPE reveals that the model tends to slightly underestimate energy consumption, with an average percentage difference of -0.548% between forecasted and actual values.
+MAPE (Mean Absolute Percentage Error) = 6.657589: The MAPE measures the average absolute percentage error of the model's forecasts, with the model's forecasts being about 6.66% off from the actual values on average.
+
+In summary, the seasonal ARIMA model built to forecast energy consumption has a relatively lower error rate compared to the previous ETS and non-seasonal ARIMA models. The model slightly underestimates energy consumption, and its errors exhibit very weak negative dependence on each other.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+DATA VALIDATION AND MODEL EVALUATION 
+
+For model creation and evaluation, I have used the energy consumption data only for 2019.
+To test and validate our model performance I will now use the actual data for January 2020 which I already have. In order to determine the accuracy of the models I will compare the mean forecast which I have calculated earlier to the actual mean energy consumption per day for january 2020
+using our data :
+we can see 
+Total Energy Consumption in January  =	25314.61
+Actual Mean Energy consumption	             =  843.82
+
+Comparing the actual mean energy consumption with foretasted data for each model 
+
+ETS MODEL MEAN FORECAST  = 795.6354
+ETS MODEL ACCURACY = 94.71 %
+
+ARIMA MODEL MEAN FORECAST = 799.9998
+ARIMA MODEL ACCURACY = 94.89 % 
+
+S ARIMA MODEL MEAN FORECAST = 799.47
+S ARIMA MODEL ACCURACY = 94.78 %
+
+
+While the accuracy for each of these models in comparision with the actual value is good enough, the best accuracy is given by the Arima model and based on fact that the ARIMA model has the lowest RMSE (62.6832), followed by the Seasonal ARIMA model (65.06954), and then the ETS model (74.46787). The lower the RMSE, the better the model's performance in predicting the energy consumption on the test dataset. In this case, the ARIMA model seems to be the best model among the three.
+
+
+
+
+
